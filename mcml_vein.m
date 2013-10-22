@@ -1,10 +1,10 @@
 function [] = mcml_vein()
 %MCML_VEIN Multi-ftn.layered Monte Carlo simulation, line source, vein present
 %
-%   Illumination width = 70 mm
-%   (Illumination length = 93 mm) (not required information)
-%   Detection width = 65 mm
-%   Detection length = 87 mm
+%   Illumination width = xx mm
+%   (Illumination length =  mm) (not required information)
+%   Detection width = xx mm
+%   Detection length = xx mm
 %   Bin resolution = 0.05 mm
 %
 %CONSTANTS (contained in params struct)
@@ -36,13 +36,18 @@ function [] = mcml_vein()
 params = struct; % Defines empty struct
 
 % Seed the random number generator based on the current time
-stream = RandStream('mt19937ar','Seed',sum(100*clock));  %Needed for older matlabs
-RandStream.setDefaultStream(stream); %Needed for older matlabs
-%rng('shuffle'); % Works for new matlabs
+%stream = RandStream('mt19937ar','Seed',sum(100*clock));  %Needed for older matlabs
+%RandStream.setDefaultStream(stream); %Needed for older matlabs
+rng('shuffle'); % Works for new matlabs
 
 % Read XLSX file containing list of MC sims to run & sim-specific data
 [file, nruns] = read_list_sims;
 disp(['Processing file ',file])
+pool_size = matlabpool('size');
+
+if pool_size == 0
+    pool_size = 1;
+end
 
 for currun = 1:nruns % First run starts at 1 (Sheet1)
     
@@ -51,60 +56,67 @@ for currun = 1:nruns % First run starts at 1 (Sheet1)
     lbin = zeros(1000,1); % Zero launch bins
     dbin = zeros(800, 800); % Zero detect bins
     
-%     disp(['Currently processing run ', int2str(currun), '/', int2str(nruns), ' ', int2str(1000*params.kftn), ' Photons'])
-     tic %Start timer for performance measurements
-     parfor_progress(1000*params.kftn); %Terminal-based progress indicator
+    %     disp(['Currently processing run ', int2str(currun), '/', int2str(nruns), ' ', int2str(1000*params.kftn), ' Photons'])
+    tic %Start timer for performance measurements
+    %      parfor_progress(1000*params.kftn); %Terminal-based progress indicator
     
-    parfor ftncount = 1:1000*params.kftn
-        local_lbin = zeros(1000,1);
-        local_dbin = zeros(800, 800);
-
-        ftn = struct;
-        ftn = ftnini();
-        
-        % Score launch location
-        if ftn.x(1) >= -25 && ftn.x(1) < 25 % Photon is within scoring range
-            xbin = floor((ftn.x(1) + 25)/0.05) + 1;
-            local_lbin(xbin,1) = ftn.wt;
+    parfor ftngroup = 1:pool_size
+        if ftngroup == 1
+            parfor_progress(1000*params.kftn/pool_size); %Terminal-based progress indicator
         end
-        
-        % Main portion of code
-        while (ftn.wt > 1e-16)
-            [ftn, local_dbin] = tissue(ftn, params, local_dbin);
+        for ftncount = 1:(1000*params.kftn/pool_size)
             
-            if ftn.wt <= 1e-6 % Photon weight is too small
-                ftn.wt = 0;
+            local_lbin = zeros(1000,1);
+            local_dbin = zeros(800, 800);
+            
+            ftn = struct;
+            ftn = ftnini();
+            
+            % Score launch location
+            if ftn.x(1) >= -25 && ftn.x(1) < 25 % Photon is within scoring range
+                xbin = floor((ftn.x(1) + 25)/0.05) + 1;
+                local_lbin(xbin,1) = ftn.wt;
             end
             
-            if realsqrt(ftn.x(1)^2+ftn.x(2)^2) >= 50 % Photon is too far away (x & y dir only)
-                ftn.wt = 0;
-            end
-            
-            if ftn.nrus >= params.rusnum % Photon has scattered too many times
-                if rand <= params.rusfrac
-                    ftn.nrus = -10*ftn.nrus; % Reset number of scatters
-                    ftn.wt = ftn.wt/params.rusfrac; % Correct weight for roulette
-                else
+            % Main portion of code
+            while (ftn.wt > 1e-16)
+                [ftn, local_dbin] = tissue(ftn, params, local_dbin);
+                
+                if ftn.wt <= 1e-6 % Photon weight is too small
                     ftn.wt = 0;
                 end
+                
+                if realsqrt(ftn.x(1)^2+ftn.x(2)^2) >= 50 % Photon is too far away (x & y dir only)
+                    ftn.wt = 0;
+                end
+                
+                if ftn.nrus >= params.rusnum % Photon has scattered too many times
+                    if rand <= params.rusfrac
+                        ftn.nrus = -10*ftn.nrus; % Reset number of scatters
+                        ftn.wt = ftn.wt/params.rusfrac; % Correct weight for roulette
+                    else
+                        ftn.wt = 0;
+                    end
+                end
+                
             end
-
+            
+            lbin = lbin + local_lbin;
+            dbin = dbin + local_dbin;
+            if ftngroup == 1
+                parfor_progress; % Update progress bar
+            end
         end
-        
-        lbin = lbin + local_lbin;
-        dbin = dbin + local_dbin;
-        
-        parfor_progress; % Update progress bar
     end
     
     parfor_progress(0); %Cleanup progress bar files
     toc %Stop timer for performance measurements, output time
-
-     str = num2str(currun);
-     runloc = strcat('Sheet',str);
-     xlswrite(file,lbin,runloc,'C20')
-     xlswrite(file,dbin,runloc,'E20')
-
+    
+    str = num2str(currun);
+    runloc = strcat('Sheet',str);
+    xlswrite(file,lbin,runloc,'C20')
+    xlswrite(file,dbin,runloc,'E20')
+    
 end
 
 end
@@ -173,11 +185,11 @@ s = -log(rand)/params.mut(ftn.layer); % Sample for new pathlength
 if dv >= 0 && dv <= s && dv < db % The photon encounters the vein
     s = dv;
     ftn.layer = layer3;
-%     if ftn.layer == 4
-%         ftn.layer = 3;
-%     else
-%         ftn.layer = 4;
-%     end
+    %     if ftn.layer == 4
+    %         ftn.layer = 3;
+    %     else
+    %         ftn.layer = 4;
+    %     end
     ftn.x = ftn.x + s*ftn.ct; % Move to new position on vein boundary
 elseif db > 0 && db <= s && db < dv % The photon encounters the boundary
     s = db;
@@ -236,7 +248,7 @@ else
         layer2 = ftn.layer;
         db = 1000; % Current photon path runs parallel to boundary. No intersection
     end
-
+    
     if layer2 == 4 % Layer = 4 is reserved for vein
         layer2 = 5;
     end
@@ -285,17 +297,17 @@ if ftn.layer == 3 || ftn.layer == 4 % Special check in layer 3 for interaction w
             dv = 1000;
             layer3 = ftn.layer;
         end
-%         if dva > 0.001 && dvs > 0.001 % Select the smallest, positive distance
-%             dv = dvs;
-%         elseif dva < 0 && dvs < 0 % Both points are "behind" photon
-%             dv = 1000;
-%         else
-%             dv = dva; % Select only positive distance
-%         end
-%         
-%         if dv < 0.001 % Check that dv isn't ridiculously small
-%             dv = 1000;
-%         end
+        %         if dva > 0.001 && dvs > 0.001 % Select the smallest, positive distance
+        %             dv = dvs;
+        %         elseif dva < 0 && dvs < 0 % Both points are "behind" photon
+        %             dv = 1000;
+        %         else
+        %             dv = dva; % Select only positive distance
+        %         end
+        %
+        %         if dv < 0.001 % Check that dv isn't ridiculously small
+        %             dv = 1000;
+        %         end
         
     elseif D == 0 % 1 possible intersection point
         dv = 1000; % Treat like a glancing blow/no interaction
@@ -361,7 +373,7 @@ else
     sinnorm = realsqrt(1-ftn.ct(3)^2);
     cttemp1 = ftn.ct(1)*costheta + sintheta*(ftn.ct(1)*ftn.ct(3)*cosphi - ftn.ct(2)*sinphi)/sinnorm;
     cttemp2 = ftn.ct(2)*costheta + sintheta*(ftn.ct(2)*ftn.ct(3)*cosphi - ftn.ct(1)*sinphi)/sinnorm;
-
+    
     ftn.ct(3) = ftn.ct(3)*costheta - sinnorm*sintheta*cosphi;
     ftn.ct(1) = cttemp1;
     ftn.ct(2) = cttemp2;
