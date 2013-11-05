@@ -41,11 +41,10 @@ params = struct; % Defines empty struct
 rng('shuffle'); % Works for new matlabs
 
 % Read XLSX file containing list of MC sims to run & sim-specific data
-[file, nruns] = read_list_sims;
+file = read_list_sims;
 disp(['Processing file ',file])
 
-   
-    params = read_param(1, file); % Fill up parameter struct
+	load(file); % Loads input MAT file containing params struct
     
     lbin = zeros(1000,1); % Zero launch bins
     dbin = zeros(800, 800); % Zero detect bins
@@ -95,23 +94,19 @@ disp(['Processing file ',file])
             dbin = dbin + local_dbin;
         end
     
-    toc %Stop timer for performance measurements, output time
+    delta_t = toc %Stop timer for performance measurements, output time
     
-    str = num2str(1);
-    runloc = strcat('Sheet',str);
-    xlswrite(file,lbin,runloc,'C20')
-    xlswrite(file,dbin,runloc,'E20')
-    
+outfile = strcat(file(1:end-4),'_output.mat');
+save(outfile, 'dbin', 'params', 'delta_t')
 
 end
 
-function [file, nruns] = read_list_sims()
+function file = read_list_sims()
 %READ_LIST_SIMS Read in the location of number of simulations and sim-specific data
 %   Detailed explanation goes here
 
-[filename, pathname] = uigetfile('*.xlsx', 'Seleftn.ct the XLSX file containing the MC data to run');
+[filename, pathname] = uigetfile('*.mat', 'Select the MAT file containing the MC parameters');
 file = strcat(pathname,filename);
-nruns = xlsread(file,'Sheet0');
 
 end
 
