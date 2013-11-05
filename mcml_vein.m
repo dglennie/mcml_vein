@@ -1,4 +1,4 @@
-function [] = mcml_vein()
+function [] = mcml_vein(file)
 %MCML_VEIN Multi-ftn.layered Monte Carlo simulation, line source, vein present
 %
 %   Illumination width = 50 mm
@@ -41,7 +41,6 @@ params = struct; % Defines empty struct
 rng('shuffle'); % Works for new matlabs
 
 % Read XLSX file containing list of MC sims to run & sim-specific data
-file = read_list_sims;
 disp(['Processing file ',file])
 
 	load(file); % Loads input MAT file containing params struct
@@ -98,42 +97,6 @@ disp(['Processing file ',file])
     
 outfile = strcat(file(1:end-4),'_output.mat');
 save(outfile, 'dbin', 'params', 'delta_t')
-
-end
-
-function file = read_list_sims()
-%READ_LIST_SIMS Read in the location of number of simulations and sim-specific data
-%   Detailed explanation goes here
-
-[filename, pathname] = uigetfile('*.mat', 'Select the MAT file containing the MC parameters');
-file = strcat(pathname,filename);
-
-end
-
-function [params] = read_param(currun, file)
-%READ_PARAM Read in parameters for the current simulation
-%   Detailed explanation goes here
-
-str = num2str(currun);
-runloc = strcat('Sheet',str);
-[num_data, ~] = xlsread(file,runloc);
-
-params.rusnum = num_data(1); % Russian roulette - # scatters between
-params.rusfrac = num_data(2); % Russian roulette - survival fraftn.ction
-params.kftn = num_data(3); % Thousands of photons in simuation
-params.g(1:3) = num_data(4); % Anisotropy parameter
-params.g(4) = num_data(15);
-params.g2 = 1 - params.g.^2;
-params.nrel = 1/num_data(5); % Relative index of refraftn.ction for moving FROM tissue INTO air
-params.musp(1:3) = num_data(6);
-params.musp(4) = num_data(14);
-params.mua = [num_data(7) num_data(9) num_data(11) num_data(13)];
-params.mutp = params.mua + params.musp;
-params.mut = params.mua + params.musp./(1-params.g);
-params.albedo = (params.mut - params.mua)./params.mut;
-params.zb = [0 num_data(8) num_data(8)+num_data(10) num_data(8)+num_data(10)+num_data(12)];
-params.dv = num_data(16);
-params.rv = num_data(17);
 
 end
 
