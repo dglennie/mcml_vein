@@ -43,11 +43,6 @@ rng('shuffle'); % Works for new matlabs
 % Read XLSX file containing list of MC sims to run & sim-specific data
 [file, nruns] = read_list_sims;
 disp(['Processing file ',file])
-pool_size = matlabpool('size');
-
-if pool_size == 0
-    pool_size = 1;
-end
 
 for currun = 1:nruns % First run starts at 1 (Sheet1)
     
@@ -59,8 +54,8 @@ for currun = 1:nruns % First run starts at 1 (Sheet1)
     %     disp(['Currently processing run ', int2str(currun), '/', int2str(nruns), ' ', int2str(1000*params.kftn), ' Photons'])
     tic %Start timer for performance measurements
     
-    parfor ftngroup = 1:pool_size
-        for ftncount = 1:(1000*params.kftn/pool_size)
+
+        for ftncount = 1:(1000*params.kftn)
             
             local_lbin = zeros(1000,1);
             local_dbin = zeros(800, 800);
@@ -100,7 +95,6 @@ for currun = 1:nruns % First run starts at 1 (Sheet1)
             lbin = lbin + local_lbin;
             dbin = dbin + local_dbin;
         end
-    end
     
     toc %Stop timer for performance measurements, output time
     
