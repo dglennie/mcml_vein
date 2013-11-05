@@ -1,4 +1,4 @@
-function [] = mcml_vein(file)
+function [] = mcml_vein(file, runnum)
 %MCML_VEIN Multi-ftn.layered Monte Carlo simulation, line source, vein present
 %
 %   Illumination width = 50 mm
@@ -36,9 +36,10 @@ function [] = mcml_vein(file)
 params = struct; % Defines empty struct
 
 % Seed the random number generator based on the current time
-%stream = RandStream('mt19937ar','Seed',sum(100*clock));  %Needed for older matlabs
-%RandStream.setDefaultStream(stream); %Needed for older matlabs
-rng('shuffle'); % Works for new matlabs
+rndseed = sum(100*clock);
+stream = RandStream('mt19937ar','Seed',rndseed);  %Needed for older matlabs
+RandStream.setGlobalStream(stream); %Needed for older matlabs
+
 
 % Read XLSX file containing list of MC sims to run & sim-specific data
 disp(['Processing file ',file])
@@ -95,8 +96,8 @@ disp(['Processing file ',file])
     
     delta_t = toc %Stop timer for performance measurements, output time
     
-outfile = strcat(file(1:end-4),'_output.mat');
-save(outfile, 'dbin', 'params', 'delta_t')
+	outfile = strcat(file(1:end-4),'_output',sprintf('%.3d',runnum),'.mat');
+save(outfile, 'dbin', 'params', 'delta_t', 'rndseed')
 
 end
 
