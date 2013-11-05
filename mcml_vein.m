@@ -1,5 +1,5 @@
 function [] = mcml_vein(file, runnum)
-%MCML_VEIN Multi-ftn.layered Monte Carlo simulation, line source, vein present
+%MCML_VEIN Multi-layered Monte Carlo simulation, line source, vein present
 %
 %   Illumination width = 50 mm
 %   (Illumination length =  mm) (not required information)
@@ -33,77 +33,62 @@ function [] = mcml_vein(file, runnum)
 %OTHER
 %   s   pathlength (mm)
 
-params = struct; % Defines empty struct
-
 % Seed the random number generator based on the current time
 rndseed = sum(100*clock);
-stream = RandStream('mt19937ar','Seed',rndseed);  %Needed for older matlabs
-RandStream.setGlobalStream(stream); %Needed for older matlabs
+stream = RandStream('mt19937ar','Seed',rndseed);
+RandStream.setGlobalStream(stream);
 
-
-% Read XLSX file containing list of MC sims to run & sim-specific data
 disp(['Processing file ',file])
 
-	load(file); % Loads input MAT file containing params struct
-    
-    lbin = zeros(1000,1); % Zero launch bins
-    dbin = zeros(800, 800); % Zero detect bins
-    
-    %     disp(['Currently processing run ', int2str(currun), '/', int2str(nruns), ' ', int2str(1000*params.kftn), ' Photons'])
-    tic %Start timer for performance measurements
-    
+load(file); % Loads input MAT file containing params struct
 
-        for ftncount = 1:(1000*params.kftn)
-            
-            local_lbin = zeros(1000,1);
-            local_dbin = zeros(800, 800);
-            
-            ftn = struct;
-            ftn = ftnini();
-            
-            % Score launch location
-            if ftn.x(1) >= -25 && ftn.x(1) < 25 % Photon is within scoring range
-                xbin = floor((ftn.x(1) + 25)/0.05) + 1;
-                local_lbin(xbin,1) = ftn.wt;
-            end
-            
-            % Main portion of code
-            while (ftn.wt > 1e-16)
-                [ftn, local_dbin] = tissue(ftn, params, local_dbin);
-                
-                if ftn.wt <= 1e-6 % Photon weight is too small
-                    ftn.wt = 0;
-                end
-                
-                if realsqrt(ftn.x(1)^2+ftn.x(2)^2) >= 50 % Photon is too far away (x & y dir only)
-                    ftn.wt = 0;
-                end
-                
-                if ftn.nrus >= params.rusnum % Photon has scattered too many times
-                    if rand <= params.rusfrac
-                        ftn.nrus = -10*ftn.nrus; % Reset number of scatters
-                        ftn.wt = ftn.wt/params.rusfrac; % Correct weight for roulette
-                    else
-                        ftn.wt = 0;
-                    end
-                end
-                
-            end
-            
-            lbin = lbin + local_lbin;
-            dbin = dbin + local_dbin;
+dbin = zeros(800, 800); % Zero the detection bins
+
+tic; % Start timer for performance measurements
+
+for ftncount = 1:(1000*params.kftn)
+    
+    local_dbin = zeros(800, 800);
+    
+    ftn = struct;
+    ftn = ftnini(); % Launch photon
+    
+    % Main portion of code
+    while (ftn.wt > 1e-16)
+        [ftn, local_dbin] = tissue(ftn, params, local_dbin);
+        
+        if ftn.wt <= 1e-6 % Photon weight is too small
+            ftn.wt = 0;
         end
+        
+        if realsqrt(ftn.x(1)^2+ftn.x(2)^2) >= 50 % Photon is too far away (x & y dir only)
+            ftn.wt = 0;
+        end
+        
+        if ftn.nrus >= params.rusnum % Photon has scattered too many times
+            if rand <= params.rusfrac
+                ftn.nrus = -10*ftn.nrus; % Reset number of scatters
+                ftn.wt = ftn.wt/params.rusfrac; % Correct weight for roulette
+            else
+                ftn.wt = 0;
+            end
+        end
+        
+    end
     
-    delta_t = toc %Stop timer for performance measurements, output time
-    
-	outfile = strcat(file(1:end-4),'_output',sprintf('%.3d',runnum),'.mat');
+    dbin = dbin + local_dbin;
+end
+
+delta_t = toc; % Stop timer for performance measurements, output time
+
+outfile = strcat(file(1:end-4),'_output',sprintf('%.3d',runnum),'.mat'); % Create output file name
 save(outfile, 'dbin', 'params', 'delta_t', 'rndseed')
 
 end
 
 function ftn = ftnini()
 %FTNINI Initialize photon
-%   Detailed explanation goes here
+
 ftn.x(1) = (rand - 0.5)*50; % -25 mm <= x(1) <= 25 mm
 ftn.x(2) = 0; % Line source along y = 0
 ftn.x(3) = 0; % Launched at surface
@@ -118,7 +103,6 @@ end
 
 function [ftn, local_dbin] = tissue(ftn, params, local_dbin)
 %TISSUE Map out next step in tissue
-%   Detailed explanation goes here
 
 s = -log(rand)/params.mut(ftn.layer); % Sample for new pathlength
 [db, layer2] = distbound(ftn, params); % Determine distance to boundary along current direction vector
@@ -128,15 +112,10 @@ s = -log(rand)/params.mut(ftn.layer); % Sample for new pathlength
 if dv >= 0 && dv <= s && dv < db % The photon encounters the vein
     s = dv;
     ftn.layer = layer3;
-    %     if ftn.layer == 4
-    %         ftn.layer = 3;
-    %     else
-    %         ftn.layer = 4;
-    %     end
     ftn.x = ftn.x + s*ftn.ct; % Move to new position on vein boundary
 elseif db > 0 && db <= s && db < dv % The photon encounters the boundary
     s = db;
-    if layer2 == 5 % layer = 4 is reserved for inside veing
+    if layer2 == 5 % layer = 4 is reserved for inside vein
         ftn.wt = 0;
     elseif layer2 == 0
         ftn.x = ftn.x + s*ftn.ct; % Move to new position at surface
@@ -148,7 +127,7 @@ elseif db > 0 && db <= s && db < dv % The photon encounters the boundary
             ftn.layer = 1;
         else % Successfully transmits and is scored/killed
             
-            % Determine bin
+            % Determine detector bin
             if (ftn.x(1) >= -20 && ftn.x(1) < 20) && (ftn.x(2) >= -20 && ftn.x(2) < 20) % Photon is within scoring range
                 xbin = floor((ftn.x(1) + 20)/0.05) + 1;
                 ybin = floor((ftn.x(2) + 20)/0.05) + 1;
@@ -173,26 +152,25 @@ end
 
 function [db, layer2] = distbound(ftn, params)
 %DISTBOUND Determine distance to boundary along current direction vector
-%   Detailed explanation goes here
 
-if ftn.layer == 4
-    layer2 = ftn.layer;
+if ftn.layer == 4  % If inside the vein,
+    layer2 = ftn.layer; %  the distance to any boundary doesn't matter
     db = 1000;
 else
-    if ftn.ct(3) > 0
-        layer2 = ftn.layer+1;
+    if ftn.ct(3) > 0 % If pointed down, into the tissue,
+        layer2 = ftn.layer+1; % next layer is deeper
         z = params.zb(layer2);
         db = (z-ftn.x(3))/ftn.ct(3);
-    elseif ftn.ct(3) < 0
-        layer2 = ftn.layer-1;
+    elseif ftn.ct(3) < 0 % If pointed up, toward the surface,
+        layer2 = ftn.layer-1; % next layer is more superficial
         z = params.zb(ftn.layer);
         db = (z-ftn.x(3))/ftn.ct(3);
-    else
+    else % Current photon path runs parallel to boundary
         layer2 = ftn.layer;
-        db = 1000; % Current photon path runs parallel to boundary. No intersection
+        db = 1000;
     end
     
-    if layer2 == 4 % Layer = 4 is reserved for vein
+    if layer2 == 4 % Layer 4 is reserved for vein, so fat layer is called layer 5
         layer2 = 5;
     end
 end
@@ -201,9 +179,8 @@ end
 
 function [dv, layer3] = distvein(ftn, params)
 %DISTVEIN Determine distance to vein along current direction vector
-%   Detailed explanation goes here
 
-if ftn.layer == 3 || ftn.layer == 4 % Special check in layer 3 for interaction with vein
+if ftn.layer == 3 || ftn.layer == 4 % Special check in layer 3 or 4 for interaction with vein
     a = ftn.ct(1)^2 + ftn.ct(3)^2; % Calculate discriminant
     b = 2*ftn.ct(1)*ftn.x(1) + 2*ftn.ct(3)*(ftn.x(3)-(params.dv + params.rv));
     c = ftn.x(1)^2 + (ftn.x(3)-(params.dv+params.rv))^2 - params.rv^2;
@@ -240,22 +217,10 @@ if ftn.layer == 3 || ftn.layer == 4 % Special check in layer 3 for interaction w
             dv = 1000;
             layer3 = ftn.layer;
         end
-        %         if dva > 0.001 && dvs > 0.001 % Select the smallest, positive distance
-        %             dv = dvs;
-        %         elseif dva < 0 && dvs < 0 % Both points are "behind" photon
-        %             dv = 1000;
-        %         else
-        %             dv = dva; % Select only positive distance
-        %         end
-        %
-        %         if dv < 0.001 % Check that dv isn't ridiculously small
-        %             dv = 1000;
-        %         end
         
     elseif D == 0 % 1 possible intersection point
         dv = 1000; % Treat like a glancing blow/no interaction
         layer3 = ftn.layer;
-        %dv = -b/(2*a);
     else % 0 possible intersection points
         dv = 1000;
         layer3 = ftn.layer;
@@ -270,7 +235,7 @@ end
 
 function bscwt = fresnel(nrel, ct)
 %BSCWT Calculate the Fresnel refleftn.ction and transmission coefficients
-%   Detailed explanation goes here
+
 if nrel == 1
     bscwt = 0;
 else
@@ -292,7 +257,6 @@ end
 
 function dir = scatter(ftn, params)
 %SCATTER Sample for new scatter angle in tissue
-%   Detailed explanation goes here
 
 % Get sin & cos of azimuthal angle
 phi = 2*pi*rand;
@@ -308,7 +272,7 @@ costheta = (2 - params.g2(ftn.layer) - p)/(2*params.g(ftn.layer));
 sintheta = realsqrt(1 - costheta^2);
 
 % Change direction
-if abs(ftn.ct(3)) > 0.999 % if theta = 0, then equations simplify (also prevents error if costheta > 1)
+if abs(ftn.ct(3)) > 0.999 % If theta = 0, then equations simplify (also prevents error if costheta > 1)
     ftn.ct(1) = sintheta*cosphi;
     ftn.ct(2) = sintheta*sinphi;
     ftn.ct(3) = costheta*ftn.ct(3)/abs(ftn.ct(3));
