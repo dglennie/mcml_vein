@@ -44,9 +44,8 @@ rng('shuffle'); % Works for new matlabs
 [file, nruns] = read_list_sims;
 disp(['Processing file ',file])
 
-for currun = 1:nruns % First run starts at 1 (Sheet1)
-    
-    params = read_param(currun, file); % Fill up parameter struct
+   
+    params = read_param(1, file); % Fill up parameter struct
     
     lbin = zeros(1000,1); % Zero launch bins
     dbin = zeros(800, 800); % Zero detect bins
@@ -98,12 +97,11 @@ for currun = 1:nruns % First run starts at 1 (Sheet1)
     
     toc %Stop timer for performance measurements, output time
     
-    str = num2str(currun);
+    str = num2str(1);
     runloc = strcat('Sheet',str);
     xlswrite(file,lbin,runloc,'C20')
     xlswrite(file,dbin,runloc,'E20')
     
-end
 
 end
 
