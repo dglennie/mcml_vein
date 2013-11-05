@@ -1,10 +1,10 @@
 function [] = mcml_vein()
 %MCML_VEIN Multi-ftn.layered Monte Carlo simulation, line source, vein present
 %
-%   Illumination width = xx mm
+%   Illumination width = 50 mm
 %   (Illumination length =  mm) (not required information)
-%   Detection width = xx mm
-%   Detection length = xx mm
+%   Detection width = 40 mm
+%   Detection length = 40 mm
 %   Bin resolution = 0.05 mm
 %
 %CONSTANTS (contained in params struct)
@@ -58,12 +58,8 @@ for currun = 1:nruns % First run starts at 1 (Sheet1)
     
     %     disp(['Currently processing run ', int2str(currun), '/', int2str(nruns), ' ', int2str(1000*params.kftn), ' Photons'])
     tic %Start timer for performance measurements
-    %      parfor_progress(1000*params.kftn); %Terminal-based progress indicator
     
     parfor ftngroup = 1:pool_size
-        if ftngroup == 1
-            parfor_progress(1000*params.kftn/pool_size); %Terminal-based progress indicator
-        end
         for ftncount = 1:(1000*params.kftn/pool_size)
             
             local_lbin = zeros(1000,1);
@@ -103,13 +99,9 @@ for currun = 1:nruns % First run starts at 1 (Sheet1)
             
             lbin = lbin + local_lbin;
             dbin = dbin + local_dbin;
-            if ftngroup == 1
-                parfor_progress; % Update progress bar
-            end
         end
     end
     
-    parfor_progress(0); %Cleanup progress bar files
     toc %Stop timer for performance measurements, output time
     
     str = num2str(currun);
