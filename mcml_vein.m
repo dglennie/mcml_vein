@@ -38,7 +38,7 @@ rndseed = sum(100*clock);
 stream = RandStream('mt19937ar','Seed',rndseed);
 RandStream.setGlobalStream(stream);
 
-disp(['Processing file ',file])
+%disp(['Processing file ',file])
 
 load(file); % Loads input MAT file containing params struct
 
