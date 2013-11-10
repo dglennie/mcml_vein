@@ -81,7 +81,7 @@ end
 
 delta_t = toc; % Stop timer for performance measurements, output time
 
-outfile = strcat(file(1:end-4),'_output',sprintf('%03d',str2num(runnum)),'.mat'); % Create output file name
+outfile = strcat(file(1:end-4),'_output',sprintf('%04d',str2num(runnum)),'.mat'); % Create output file name
 save(outfile, 'dbin', 'params', 'delta_t', 'rndseed')
 
 end
