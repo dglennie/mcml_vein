@@ -1,4 +1,4 @@
-function [] = mcml_vein(file, runnum)
+function [] = mcml(file, runnum)
 %MCML_VEIN Multi-layered Monte Carlo simulation, line source, vein present
 %
 %   Illumination width = 50 mm
@@ -9,7 +9,7 @@ function [] = mcml_vein(file, runnum)
 %
 %CONSTANTS (contained in params struct)
 %   rusnum   number of scatters before Russian roulette engaged
-%   rusfrac   fraction of occurances where photon survives roulette
+%   rusfrac   fraction of occurrences where photon survives roulette
 %   kftn   number of groups of thousands of photons
 %   g   anisotropy factor
 %   g2   g^2
@@ -61,7 +61,7 @@ for ftncount = 1:(1000*params.kftn)
             ftn.wt = 0;
         end
         
-        if realsqrt(ftn.x(1)^2+ftn.x(2)^2) >= 50 % Photon is too far away (x & y dir only)
+        if realsqrt(ftn.x(1)^2+ftn.x(2)^2) >= 25 % Photon is too far away (x & y dir only)
             ftn.wt = 0;
         end
         
@@ -89,7 +89,7 @@ end
 function ftn = ftnini()
 %FTNINI Initialize photon
 
-ftn.x(1) = (rand - 0.5)*50; % -25 mm <= x(1) <= 25 mm
+ftn.x(1) = (rand - 0.5)*20; % -10 mm <= x(1) <= 10 mm
 ftn.x(2) = 0; % Line source along y = 0
 ftn.x(3) = 0; % Launched at surface
 
@@ -128,9 +128,9 @@ elseif db > 0 && db <= s && db < dv % The photon encounters the boundary
         else % Successfully transmits and is scored/killed
             
             % Determine detector bin
-            if (ftn.x(1) >= -20 && ftn.x(1) < 20) && (ftn.x(2) >= -20 && ftn.x(2) < 20) % Photon is within scoring range
-                xbin = floor((ftn.x(1) + 20)/0.05) + 1;
-                ybin = floor((ftn.x(2) + 20)/0.05) + 1;
+            if (ftn.x(1) >= -7.5 && ftn.x(1) < 7.5) && (ftn.x(2) >= -7.5 && ftn.x(2) < 7.5) % Photon is within scoring range
+                xbin = floor((ftn.x(1) + 7.5)/0.05) + 1;
+                ybin = floor((ftn.x(2) + 7.5)/0.05) + 1;
                 local_dbin(xbin,ybin) = ftn.wt; % Add weight to bin
             end
             
