@@ -40,13 +40,13 @@ RandStream.setGlobalStream(stream);
 
 load(file); % Loads input MAT file containing params struct
 
-dbin = zeros(800, 800); % Zero the detection bins
+dbin = zeros(300, 300); % Zero the detection bins
 
 tic; % Start timer for performance measurements
 
 for ftncount = 1:(1000*params.kftn)
     
-    local_dbin = zeros(800, 800);
+    local_dbin = zeros(300, 300);
     
     ftn = struct;
     ftn = ftnini(); % Launch photon
