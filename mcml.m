@@ -106,16 +106,11 @@ function [ftn, local_dbin] = tissue(ftn, params, local_dbin)
 
 s = -log(rand)/params.mut(ftn.layer); % Sample for new pathlength
 [db, layer2] = distbound(ftn, params); % Determine distance to boundary along current direction vector
-[dv, layer3] = distvein(ftn, params); % Determine distance to vein along current direction vector
 
 % Is the step size greater than the distance to the boundary or vein?
-if dv >= 0 && dv <= s && dv < db % The photon encounters the vein
-    s = dv;
-    ftn.layer = layer3;
-    ftn.x = ftn.x + s*ftn.ct; % Move to new position on vein boundary
-elseif db > 0 && db <= s && db < dv % The photon encounters the boundary
+if db > 0 && db <= s % The photon encounters the boundary
     s = db;
-    if layer2 == 5 % layer = 4 is reserved for inside vein
+    if layer2 == 4 % layer 4 represents muscle, photon is assumed lost
         ftn.wt = 0;
     elseif layer2 == 0
         ftn.x = ftn.x + s*ftn.ct; % Move to new position at surface
@@ -153,88 +148,23 @@ end
 function [db, layer2] = distbound(ftn, params)
 %DISTBOUND Determine distance to boundary along current direction vector
 
-if ftn.layer == 4  % If inside the vein,
-    layer2 = ftn.layer; %  the distance to any boundary doesn't matter
+if ftn.ct(3) > 0 % If pointed down, into the tissue,
+    layer2 = ftn.layer + 1; % next layer is deeper
+    z = params.zb(layer2);
+    db = (z-ftn.x(3))/ftn.ct(3);
+elseif ftn.ct(3) < 0 % If pointed up, toward the surface,
+    layer2 = ftn.layer-1; % next layer is more superficial
+    z = params.zb(ftn.layer);
+    db = (z-ftn.x(3))/ftn.ct(3);
+else % Current photon path runs parallel to boundary
+    layer2 = ftn.layer;
     db = 1000;
-else
-    if ftn.ct(3) > 0 % If pointed down, into the tissue,
-        layer2 = ftn.layer+1; % next layer is deeper
-        z = params.zb(layer2);
-        db = (z-ftn.x(3))/ftn.ct(3);
-    elseif ftn.ct(3) < 0 % If pointed up, toward the surface,
-        layer2 = ftn.layer-1; % next layer is more superficial
-        z = params.zb(ftn.layer);
-        db = (z-ftn.x(3))/ftn.ct(3);
-    else % Current photon path runs parallel to boundary
-        layer2 = ftn.layer;
-        db = 1000;
-    end
-    
-    if layer2 == 4 % Layer 4 is reserved for vein, so fat layer is called layer 5
-        layer2 = 5;
-    end
-end
-
-end
-
-function [dv, layer3] = distvein(ftn, params)
-%DISTVEIN Determine distance to vein along current direction vector
-
-if ftn.layer == 3 || ftn.layer == 4 % Special check in layer 3 or 4 for interaction with vein
-    a = ftn.ct(1)^2 + ftn.ct(3)^2; % Calculate discriminant
-    b = 2*ftn.ct(1)*ftn.x(1) + 2*ftn.ct(3)*(ftn.x(3)-(params.dv + params.rv));
-    c = ftn.x(1)^2 + (ftn.x(3)-(params.dv+params.rv))^2 - params.rv^2;
-    D = b^2 - 4*a*c;
-    if D > 0 % 2 possible intersection points (most common occurance)
-        dva = (-b + sqrt(D))/(2*a);
-        dvs = (-b - sqrt(D))/(2*a);
-        
-        if dva > 0 && dvs >= 0
-            if ftn.layer == 3
-                dv = dvs;
-                layer3 = 4;
-            else % ftn.layer == 4
-                dv = dva;
-                layer3 = 3;
-            end
-        elseif dva >= 0 && dvs < 0
-            if ftn.layer == 4
-                dv = dva;
-                layer3 = 3;
-            else
-                dv = 1000;
-                layer3 = 3;
-            end
-        elseif dva < 0 && dvs < 0
-            if ftn.layer == 3
-                dv = 1000;
-                layer3 = 3;
-            else
-                dv = 0.0001;
-                layer3 = 3;
-            end
-        else
-            dv = 1000;
-            layer3 = ftn.layer;
-        end
-        
-    elseif D == 0 % 1 possible intersection point
-        dv = 1000; % Treat like a glancing blow/no interaction
-        layer3 = ftn.layer;
-    else % 0 possible intersection points
-        dv = 1000;
-        layer3 = ftn.layer;
-    end
-    
-else
-    dv = 1000;
-    layer3 = ftn.layer;
 end
 
 end
 
 function bscwt = fresnel(nrel, ct)
-%BSCWT Calculate the Fresnel refleftn.ction and transmission coefficients
+%BSCWT Calculate the Fresnel reflection and transmission coefficients
 
 if nrel == 1
     bscwt = 0;
