@@ -1,10 +1,10 @@
 function [] = mcml(file, runnum)
 %MCML_VEIN Multi-layered Monte Carlo simulation, line source, vein present
 %
-%   Illumination width = 50 mm
+%   Illumination width = 20 mm
 %   (Illumination length =  mm) (not required information)
-%   Detection width = 40 mm
-%   Detection length = 40 mm
+%   Detection width = 15 mm
+%   Detection length = 15 mm
 %   Bin resolution = 0.05 mm
 %
 %CONSTANTS (contained in params struct)
@@ -20,15 +20,13 @@ function [] = mcml(file, runnum)
 %   mut   total interaction coefficient (mm^-1)
 %   albedo   scattering albedo
 %   zb   total depth to boundary (mm)
-%   dv   depth to top of vein along central axis (mm)
-%   rv   vein radius (mm)
 %
 %VARIABLES (contained in ftn struct)
 %   x[3]   Cartesian coordinates
 %   ct[3]   direction cosines
 %   nrus   total number of scatters
 %   wt   photon weight
-%   layer   epidermis(1), dermis(2), subcutis(3), vein(4), "muscle"(5)
+%   layer   epidermis(1), dermis(2), subcutis(3), "muscle"(4)
 %
 %OTHER
 %   s   pathlength (mm)
